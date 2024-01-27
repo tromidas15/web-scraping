@@ -1,0 +1,12 @@
+controllers:
+    resource:
+        path: ../src/Controller/
+        namespace: App\Controller
+    type: attribute
+get_persons:
+    path: /api/persons
+    controller: App\Controller\ParliamentMembersController::getPersons
+
+get_person:
+    path: /api/persons/{id}
+    controller: App\Controller\ParliamentMembersController::getPerson
