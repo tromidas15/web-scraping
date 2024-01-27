@@ -35,7 +35,11 @@ class ParliamentMembersController
     public function getPerson(int $id): JsonResponse
     {
         try {
-            return $this->successResponse($this->parliamentMemberService->getById($id));
+            $person = $this->parliamentMemberService->getById($id);
+            if(empty($person)) {
+                return $this->notFount();
+            }
+            return $this->successResponse($person);
         } catch (\Throwable $th) {
             //to add some logs
             return $this->serverErrorResponse();

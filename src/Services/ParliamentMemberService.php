@@ -34,7 +34,9 @@ class ParliamentMemberService
     public function getById(int $id): array
     {
         $person = $this->entityManager->getRepository(MembersOfEuropeanParliament::class)->find($id);
-
+        if(!$person) {
+            return [];
+        }
         $fullName = explode(' ', $person->getFullName());
         $lastName = array_pop($fullName);
 

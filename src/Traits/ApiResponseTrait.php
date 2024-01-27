@@ -15,4 +15,9 @@ trait ApiResponseTrait
     {
         return new JsonResponse(['error' => 'Server error'], 500);
     }
+
+    public function notFount(): JsonResponse
+    {
+        return new JsonResponse(['error' => 'Not found'], 404);
+    }
 }

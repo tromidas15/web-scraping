@@ -3,7 +3,7 @@ framework:
         transports:
             async: 'in-memory://'
         routing:
-            'App\Message\YourMessage': async
+            'App\Message\ProcessMepsXmlMessage': async
 
 # when@test:
 #    framework:

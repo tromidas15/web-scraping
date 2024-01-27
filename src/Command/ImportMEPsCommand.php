@@ -3,8 +3,7 @@ declare(strict_types=1);
 
 namespace App\Command;
 
-use App\Entity\Contacts;
-use App\Entity\MembersOfEuropeanParliament;
+use App\Message\ProcessMepsXmlMessage;
 use App\Services\FailedToFetchDataException;
 use App\Services\HttpRequestsService;
 use App\Services\ParliamentMemberService;
@@ -14,6 +13,8 @@ use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
+use Symfony\Component\Messenger\MessageBus;
+use Symfony\Component\Messenger\MessageBusInterface;
 
 #[AsCommand(
     name: 'ImportMEPsCommand',
@@ -24,10 +25,8 @@ class ImportMEPsCommand extends Command
     protected static $defaultName = 'app:import-meps';
 
     public function __construct(
-        private readonly EntityManagerInterface  $entityManager,
-        private readonly WebScraper              $webScraper,
-        private readonly ParliamentMemberService $parliamentMemberService,
-        private readonly HttpRequestsService     $httpRequestsService,
+        private readonly HttpRequestsService $httpRequestsService,
+        private readonly MessageBusInterface $messageBus,
     )
     {
         parent::__construct();
@@ -39,68 +38,17 @@ class ImportMEPsCommand extends Command
 
         try {
             $xml = $this->httpRequestsService->getData();
+            // Dispatch the message with the entire XML
+            $this->messageBus->dispatch(new ProcessMepsXmlMessage($xml));
         } catch (FailedToFetchDataException $e) {
             $io->error($e->getMessage());
             return Command::FAILURE;
-        }
-
-        $this->entityManager->getConnection()->beginTransaction();
-        try {
-            foreach ($xml->mep as $mepData) {
-                $refId = (int)$mepData->id;
-                $mep = $this->entityManager->getRepository(MembersOfEuropeanParliament::class)->findOneBy(['ref_id' => $refId]);
-
-                if (!$mep) {
-                    $mep = new MembersOfEuropeanParliament();
-                    $this->entityManager->persist($mep);
-                }
-                $contactDetails = $this->webScraper->scrape((string)$mepData->fullName, $refId);
-                $this->parliamentMemberService->appendData($mep, $mepData);
-                $contactIds = [];
-                foreach ($contactDetails->getContactDetails() as $contactDetail) {
-                    $contact = $this->entityManager->getRepository(Contacts::class)->findOneBy(
-                        [
-                            'type' => $contactDetail->type,
-                            'value' => $contactDetail->value,
-                        ]
-                    );
-
-                    if ($contact) {
-                        $contactIds[] = $mep->getId();
-                        continue;
-                    }
-                    $contact = new Contacts();
-                    $contact->setType($contactDetail->type);
-                    $contact->setValue($contactDetail->value);
-                    $mep->addContact($contact);
-
-                    $this->entityManager->persist($contact);
-                }
-
-                if (!empty($contactIdsToDelete)) {
-                    $qb = $this->entityManager->createQueryBuilder();
-
-                    // Create a delete query for the Contacts entity
-                    $qb->delete('App\Entity\Contacts', 'c')
-                        ->where($qb->expr()->notIn('c.id', ':ids'))
-                        ->setParameter('ids', $contactIdsToDelete);
-
-                    // Execute the delete query
-                    $query = $qb->getQuery();
-                    $query->execute();
-                }
-            }
-
-            $this->entityManager->flush();
-            $this->entityManager->getConnection()->commit();
         } catch (\Exception $e) {
-            $this->entityManager->getConnection()->rollBack();
-            $io->error('Database operation error: ' . $e->getMessage());
+            $io->error('An error occurred: ' . $e->getMessage());
             return Command::FAILURE;
         }
 
-        $io->success('MEPs imported or updated successfully.');
-
+        $io->success('XML data dispatched for processing.');
         return Command::SUCCESS;
     }
 }

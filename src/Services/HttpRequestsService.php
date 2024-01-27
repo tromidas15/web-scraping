@@ -10,7 +10,7 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 class HttpRequestsService
 {
-    public const MEP_URL = 'https://www.europarl.europa.eu/meps/en/full-list/xml/a';
+    public const MEP_URL = 'https://www.europarl.europa.eu/meps/en/full-list/xml/';
 
     public function __construct(private readonly HttpClientInterface $client,)
     {
